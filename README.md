@@ -1,34 +1,18 @@
-# web-bff
+# web-bff-api
 
-This is a federated provider repository.
+REST version of the Web BFF. It provides 10 operations in [specs/web_bff.yaml](specs/web_bff.yaml): customer, catalog, order, quote, place-order, cancel-order, refund, and return flows.
 
-It provides the GraphQL contract stored at [specs/schema.graphql](/Users/jaydeep/znsio/specmatic-demo/web-bff/specs/schema.graphql).
+It consumes only the pricing contract from the public [pricing-api](https://github.com/specmatic-demo/pricing-api) repository. The remaining operations use local demo behavior so the contract-test setup needs only one dependency mock.
 
-It consumes the following dependencies:
-
-- `customer-service` from the central contract repository
-- `catalog-service` from `https://github.com/specmatic-demo/catalog-service` via both OpenAPI and GraphQL
-- `order-service` from the central contract repository
-- `pricing-service` from `https://github.com/specmatic-demo/pricing-service`
-- `notification-service` from `https://github.com/specmatic-demo/notification-service`
-- `returns-service` from the central contract repository
-
-## Run the service
-
-Run this from the `web-bff` repository root:
+## Run locally
 
 ```bash
 docker compose up --build
 ```
 
-This starts:
-
-- Kafka on `localhost:9092`
-- `web-bff` on `localhost:4000`
+This starts the BFF on `localhost:4000`.
 
 ## Start dependency mocks
-
-In another terminal, run this from the `web-bff` repository root:
 
 ```bash
 docker run --rm -it \
@@ -40,15 +24,7 @@ docker run --rm -it \
   mock
 ```
 
-This starts mocks for all dependencies in [specmatic.yaml](/Users/jaydeep/znsio/specmatic-demo/web-bff/specmatic.yaml), including:
-
-- `catalog-service` over both OpenAPI and GraphQL
-- the federated `pricing-service` gRPC dependency
-- the federated `notification-service` async dependency
-
 ## Run contract tests
-
-In a third terminal, run this from the `web-bff` repository root:
 
 ```bash
 docker run --rm -it \
@@ -58,62 +34,4 @@ docker run --rm -it \
   --network=host \
   specmatic/enterprise \
   test
-```
-
-The generated reports will be written under:
-
-- `build/reports/specmatic`
-
-## Generate the central contract repo report
-
-Run this from the `web-bff` repository root:
-
-```bash
-docker run -it \
-  -v "$(pwd):/usr/src/app" \
-  -v ~/.specmatic:/root/.specmatic \
-  -w /usr/src/app/specs \
-  --network=host \
-  specmatic/specmatic \
-  central-contract-repo-report
-```
-
-Expected output file:
-
-- `specs/build/reports/specmatic/central_contract_repo_report.json`
-
-## Send the central contract repo report to Insights
-
-Run this from the `web-bff` repository root:
-
-```bash
-docker run -it \
-  -v "$(pwd):/usr/src/app" \
-  -v ~/.specmatic:/root/.specmatic \
-  -w /usr/src/app/specs \
-  --network=host \
-  specmatic/specmatic \
-  send-report \
-  --branch-name=main \
-  --repo-name="$(gh repo view --json name -q .name)" \
-  --repo-id="$(gh api 'repos/{owner}/{repo}' --jq .id)" \
-  --repo-url="$(gh repo view --json url --jq .url)"
-```
-
-## Send the service test report to Insights
-
-After the test run completes, run this from the `web-bff` repository root:
-
-```bash
-docker run -it \
-  -v "$(pwd):/usr/src/app" \
-  -v ~/.specmatic:/root/.specmatic \
-  -w /usr/src/app \
-  --network=host \
-  specmatic/specmatic \
-  send-report \
-  --branch-name=main \
-  --repo-name="$(gh repo view --json name -q .name)" \
-  --repo-id="$(gh api 'repos/{owner}/{repo}' --jq .id)" \
-  --repo-url="$(gh repo view --json url --jq .url)"
 ```

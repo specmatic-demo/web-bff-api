@@ -1,0 +1,217 @@
+openapi: 3.0.3
+info:
+  title: Web BFF API
+  version: 1.0.0
+paths:
+  /customers/{id}:
+    get:
+      operationId: customer
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Customer
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Customer' }
+  /catalog/items:
+    get:
+      operationId: catalogItems
+      parameters:
+        - { name: category, in: query, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, default: 10, minimum: 1, maximum: 100 } }
+      responses:
+        '200':
+          description: Catalog items
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/CatalogItem' } }
+  /catalog/items/{sku}:
+    get:
+      operationId: catalogItemBySku
+      parameters:
+        - { name: sku, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Catalog item
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CatalogItem' }
+  /orders/{id}:
+    get:
+      operationId: order
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Order
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Order' }
+  /orders:
+    get:
+      operationId: orders
+      parameters:
+        - { name: customerId, in: query, required: true, schema: { type: string } }
+        - { name: status, in: query, schema: { type: string, enum: [PENDING_PAYMENT, CONFIRMED, SHIPPED, CANCELLED] } }
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+      responses:
+        '200':
+          description: Orders
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Order' } }
+    post:
+      operationId: placeOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PlaceOrderRequest' }
+      responses:
+        '200':
+          description: Placed order
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OrderResult' }
+  /quote-price:
+    get:
+      operationId: quotePrice
+      parameters:
+        - { name: sku, in: query, required: true, schema: { type: string } }
+        - { name: quantity, in: query, required: true, schema: { type: integer, minimum: 1 } }
+      responses:
+        '200':
+          description: Quote
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Quote' }
+  /orders/{orderId}/cancel:
+    post:
+      operationId: cancelOrder
+      parameters:
+        - { name: orderId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: { reason: { type: string } }
+      responses:
+        '200':
+          description: Cancelled order
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OrderResult' }
+  /payments/{paymentId}/refund:
+    post:
+      operationId: requestRefund
+      parameters:
+        - { name: paymentId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount, reason]
+              properties:
+                amount: { type: number }
+                reason: { type: string }
+      responses:
+        '200':
+          description: Refund result
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RefundResult' }
+  /returns:
+    post:
+      operationId: scheduleReturn
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ScheduleReturnRequest' }
+      responses:
+        '200':
+          description: Return result
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReturnResult' }
+components:
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+  schemas:
+    Customer:
+      type: object
+      required: [id, email, tier]
+      properties:
+        id: { type: string }
+        email: { type: string }
+        tier: { type: string }
+    CatalogItem:
+      type: object
+      required: [sku, name, available, listPrice]
+      properties:
+        sku: { type: string }
+        name: { type: string }
+        available: { type: boolean }
+        listPrice: { type: number }
+    Order:
+      type: object
+      required: [id, status]
+      properties:
+        id: { type: string }
+        status: { type: string }
+    Quote:
+      type: object
+      required: [sku, quantity, unitPrice, totalPrice]
+      properties:
+        sku: { type: string }
+        quantity: { type: integer }
+        unitPrice: { type: number }
+        totalPrice: { type: number }
+    PlaceOrderRequest:
+      type: object
+      required: [customerId, sku, quantity, paymentMethodId]
+      properties:
+        customerId: { type: string }
+        sku: { type: string }
+        quantity: { type: integer, minimum: 1 }
+        paymentMethodId: { type: string }
+    OrderResult:
+      type: object
+      required: [orderId, status]
+      properties:
+        orderId: { type: string }
+        status: { type: string }
+    RefundResult:
+      type: object
+      required: [paymentId, refundId, status, refundedAmount]
+      properties:
+        paymentId: { type: string }
+        refundId: { type: string }
+        status: { type: string }
+        refundedAmount: { type: number }
+    ScheduleReturnRequest:
+      type: object
+      required: [orderId, customerId, sku, quantity, reasonCode]
+      properties:
+        orderId: { type: string }
+        customerId: { type: string }
+        sku: { type: string }
+        quantity: { type: integer, minimum: 1 }
+        reasonCode: { type: string, enum: [DAMAGED, DEFECTIVE, WRONG_ITEM, NO_LONGER_NEEDED] }
+    ReturnResult:
+      type: object
+      required: [returnId, status, updatedAt]
+      properties:
+        returnId: { type: string }
+        status: { type: string }
+        updatedAt: { type: string, format: date-time }
+        refundAmount: { type: number, nullable: true }

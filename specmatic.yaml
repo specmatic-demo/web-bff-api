@@ -3,53 +3,23 @@ systemUnderTest:
   service:
     $ref: "#/components/services/webBff"
     runOptions:
-      graphqlsdl:
+      openapi:
         host: localhost
         port: 4000
 dependencies:
   services:
     - service:
-        $ref: "#/components/services/customerService"
-        runOptions:
-          $ref: "#/components/runOptions/customerServiceMock"
-    - service:
-        $ref: "#/components/services/catalogService"
-        runOptions:
-          $ref: "#/components/runOptions/catalogServiceMock"
-    - service:
-        $ref: "#/components/services/orderService"
-        runOptions:
-          $ref: "#/components/runOptions/orderServiceMock"
-    - service:
         $ref: "#/components/services/pricingService"
         runOptions:
           $ref: "#/components/runOptions/pricingServiceMock"
-    - service:
-        $ref: "#/components/services/notificationService"
-        runOptions:
-          $ref: "#/components/runOptions/notificationServiceMock"
-    - service:
-        $ref: "#/components/services/returnsService"
-        runOptions:
-          $ref: "#/components/runOptions/returnsServiceMock"
 components:
   sources:
-    centralContractRepo:
-      git:
-        url: https://github.com/specmatic-demo/central-contract-repository
-    catalogServiceRepo:
-      git:
-        url: https://github.com/specmatic-demo/catalog-service
-        branch: main
-    notificationServiceRepo:
-      git:
-        url: https://github.com/specmatic-demo/notification-service
     localSpecs:
       filesystem:
         directory: specs
     pricingServiceRepo:
       git:
-        url: https://github.com/specmatic-demo/pricing-service
+        url: https://github.com/specmatic-demo/pricing-api
   services:
     webBff:
       description: "Web BFF"
@@ -59,36 +29,7 @@ components:
               $ref: "#/components/sources/localSpecs"
             specs:
               - spec:
-                  path: "schema.graphql"
-    customerService:
-      description: "Customer Service dependency"
-      definitions:
-        - definition:
-            source:
-              $ref: "#/components/sources/centralContractRepo"
-            specs:
-              - spec:
-                  path: "contracts/services/customer-service/http/openapi.yaml"
-    catalogService:
-      description: "Catalog Service dependency"
-      definitions:
-        - definition:
-            source:
-              $ref: "#/components/sources/catalogServiceRepo"
-            specs:
-              - spec:
-                  path: "specs/openapi.yaml"
-              - spec:
-                  path: "specs/schema.graphql"
-    orderService:
-      description: "Order Service dependency"
-      definitions:
-        - definition:
-            source:
-              $ref: "#/components/sources/centralContractRepo"
-            specs:
-              - spec:
-                  path: "contracts/services/order-service/http/openapi.yaml"
+                  path: "web_bff.yaml"
     pricingService:
       description: "Pricing Service dependency"
       definitions:
@@ -97,59 +38,10 @@ components:
               $ref: "#/components/sources/pricingServiceRepo"
             specs:
               - spec:
-                  path: "specs/pricing.proto"
-    notificationService:
-      description: "Notification Service dependency"
-      definitions:
-        - definition:
-            source:
-              $ref: "#/components/sources/notificationServiceRepo"
-            specs:
-              - spec:
-                  path: "specs/asyncapi.yaml"
-    returnsService:
-      description: "Returns Service dependency"
-      definitions:
-        - definition:
-            source:
-              $ref: "#/components/sources/centralContractRepo"
-            specs:
-              - spec:
-                  path: "contracts/services/returns-service/http/openapi.yaml"
+                  path: "specs/pricing.yaml"
   runOptions:
-    customerServiceMock:
-      openapi:
-        type: mock
-        port: 5101
-        host: localhost
-    catalogServiceMock:
-      openapi:
-        type: mock
-        port: 5102
-        host: localhost
-      graphqlsdl:
-        type: mock
-        host: localhost
-        port: 5106
-    orderServiceMock:
-      openapi:
-        type: mock
-        port: 5103
-        host: localhost
     pricingServiceMock:
-      protobuf:
+      openapi:
         type: mock
         port: 5104
-        host: localhost
-        protocVersion: "3.23.4"
-    notificationServiceMock:
-      asyncapi:
-        type: mock
-        servers:
-          - host: tcp://localhost:9092
-            protocol: kafka
-    returnsServiceMock:
-      openapi:
-        type: mock
-        port: 5105
         host: localhost

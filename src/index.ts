@@ -1,537 +1,114 @@
 import { randomUUID } from 'node:crypto';
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import * as grpc from '@grpc/grpc-js';
-import * as protoLoader from '@grpc/proto-loader';
 import express, { type NextFunction, type Request, type Response } from 'express';
-import { buildSchema } from 'graphql';
-import { createHandler } from 'graphql-http/lib/use/express';
-import { Kafka, type Producer } from 'kafkajs';
-import type {
-  CustomerRecord,
-  DependencyErrorContext,
-  GraphQLCancelOrderArgs,
-  GraphQLCatalogItemsArgs,
-  GraphQLCatalogItemBySkuArgs,
-  GraphQLCustomerArgs,
-  GraphQLOrderArgs,
-  GraphQLOrdersArgs,
-  GraphQLPlaceOrderArgs,
-  GraphQLScheduleReturnArgs,
-  GraphQLQuotePriceArgs,
-  GraphQLRequestRefundArgs,
-  JsonObject,
-  OrderRecord,
-  PlaceOrderInput,
-  QuotePriceRequest,
-  QuotePriceResponse,
-  UserNotification
-} from './types';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const orderStatusValues = new Set(['PENDING_PAYMENT', 'CONFIRMED', 'SHIPPED', 'CANCELLED']);
-
-function findFirstExistingPath(paths: Array<string | undefined>): string | null {
-  for (const candidate of paths) {
-    if (candidate && fs.existsSync(candidate)) {
-      return candidate;
-    }
-  }
-
-  return null;
-}
-
-const schemaPath = findFirstExistingPath([
-  process.env.BFF_SCHEMA_PATH,
-  path.join(
-    __dirname,
-    '..',
-    'specs',
-    'schema.graphql'
-  ),
-  path.join(
-    __dirname,
-    '..',
-    '.specmatic',
-    'repos',
-    'central-contract-repository',
-    'contracts',
-    'services',
-    'web-bff',
-    'graphql',
-    'schema.graphql'
-  ),
-  path.join(
-    __dirname,
-    '..',
-    '..',
-    'central-contract-repository',
-    'contracts',
-    'services',
-    'web-bff',
-    'graphql',
-    'schema.graphql'
-  )
-]);
-
-if (!schemaPath) {
-  throw new Error('Could not find GraphQL schema file. Set BFF_SCHEMA_PATH if needed.');
-}
-
-console.log(`Using GraphQL schema from ${schemaPath}`);
-
-const pricingProtoPath = findFirstExistingPath([
-  process.env.PRICING_PROTO_PATH,
-  path.join(
-    __dirname,
-    '..',
-    '.specmatic',
-    'repos',
-    'pricing-service',
-    'specs',
-    'pricing.proto'
-  ),
-  path.join(
-    __dirname,
-    '..',
-    '.specmatic',
-    'repos',
-    'central-contract-repository',
-    'contracts',
-    'services',
-    'pricing-service',
-    'rpc',
-    'pricing.proto'
-  ),
-  path.join(
-    __dirname,
-    '..',
-    '..',
-    'pricing-service',
-    'specs',
-    'pricing.proto'
-  ),
-  path.join(
-    __dirname,
-    '..',
-    '..',
-    'central-contract-repository',
-    'contracts',
-    'services',
-    'pricing-service',
-    'rpc',
-    'pricing.proto'
-  )
-]);
-
-if (!pricingProtoPath) {
-  throw new Error('Could not find pricing proto file. Set PRICING_PROTO_PATH if needed.');
-}
-
-const schemaSource = fs.readFileSync(schemaPath, 'utf8');
-const schema = buildSchema(schemaSource);
+import type { JsonObject, QuotePriceRequest, QuotePriceResponse } from './types';
 
 const config = {
   host: process.env.BFF_HOST || '0.0.0.0',
   port: Number.parseInt(process.env.BFF_PORT || '4000', 10),
-  customerServiceBaseUrl: process.env.CUSTOMER_SERVICE_BASE_URL || 'http://localhost:5101',
-  catalogServiceBaseUrl: process.env.CATALOG_SERVICE_BASE_URL || 'http://localhost:5102',
-  catalogServiceGraphqlUrl: process.env.CATALOG_SERVICE_GRAPHQL_URL || 'http://localhost:5106/graphql',
-  orderServiceBaseUrl: process.env.ORDER_SERVICE_BASE_URL || 'http://localhost:5103',
-  returnsServiceBaseUrl: process.env.RETURNS_SERVICE_BASE_URL || 'http://localhost:5105',
-  paymentServiceBaseUrl: process.env.PAYMENT_SERVICE_BASE_URL || 'http://localhost:5105',
-  pricingServiceAddress: process.env.PRICING_SERVICE_ADDRESS || 'localhost:5104',
-  notificationKafkaBrokers: (process.env.NOTIFICATION_KAFKA_BROKERS || 'localhost:9092')
-    .split(',')
-    .map((value) => value.trim())
-    .filter(Boolean)
+  pricingServiceBaseUrl: process.env.PRICING_SERVICE_BASE_URL || 'http://localhost:5104'
 };
 
-function logDependencyError(
-  dependency: string,
-  endpoint: string,
-  error: unknown,
-  context: DependencyErrorContext = {}
-): void {
-  const message = error instanceof Error ? error.message : String(error);
-  console.error(
-    `[dependency-error] dependency=${dependency} endpoint=${endpoint} message="${message}" context=${JSON.stringify(
-      context
-    )}`
-  );
-}
+const orders = new Map<string, JsonObject>();
 
-console.log(
-  `Dependency configuration: customer=${config.customerServiceBaseUrl}, catalog=${config.catalogServiceBaseUrl}, catalogGraphql=${config.catalogServiceGraphqlUrl}, order=${config.orderServiceBaseUrl}, returns=${config.returnsServiceBaseUrl}, payment=${config.paymentServiceBaseUrl}, pricing=${config.pricingServiceAddress}, kafka=${config.notificationKafkaBrokers.join(',')}`
-);
-
-const pricingPackageDef = protoLoader.loadSync(pricingProtoPath, {
-  keepCase: false,
-  longs: String,
-  enums: String,
-  defaults: true,
-  oneofs: true
-});
-
-const pricingProto = grpc.loadPackageDefinition(pricingPackageDef) as any;
-const PricingServiceClient = pricingProto.pricing.v1.PricingService;
-const pricingClient = new PricingServiceClient(config.pricingServiceAddress, grpc.credentials.createInsecure());
-const notificationKafka = new Kafka({
-  clientId: 'web-bff-notification',
-  brokers: config.notificationKafkaBrokers
-});
-const notificationProducer: Producer = notificationKafka.producer();
-let notificationProducerConnected = false;
-
-async function ensureNotificationProducerConnected(): Promise<void> {
-  if (notificationProducerConnected) {
-    return;
-  }
-
-  await notificationProducer.connect();
-  notificationProducerConnected = true;
-  console.log(`[dependency-connected] dependency=notificationService endpoint=${config.notificationKafkaBrokers.join(',')}`);
-}
-
-async function httpJson(url: string, options: RequestInit = {}): Promise<JsonObject> {
-  let response;
-
-  try {
-    response = await fetch(url, {
-      ...options,
-      headers: {
-        'content-type': 'application/json',
-        ...(options.headers || {})
-      }
-    });
-  } catch (error: unknown) {
-    logDependencyError('httpDependency', url, error, {
-      method: options.method || 'GET',
-      phase: 'connect'
-    });
-    throw error;
-  }
+async function quotePrice(request: QuotePriceRequest): Promise<QuotePriceResponse> {
+  const response = await fetch(`${config.pricingServiceBaseUrl}/quote-price`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(request)
+  });
 
   if (!response.ok) {
-    let details = '';
-    try {
-      details = await response.text();
-    } catch (_error: unknown) {
-      details = '';
-    }
-
-    const error = new Error(`Upstream call failed (${response.status}) for ${url}${details ? `: ${details}` : ''}`);
-    logDependencyError('httpDependency', url, error, {
-      method: options.method || 'GET',
-      phase: 'response',
-      status: response.status
-    });
-    throw error;
+    throw new Error(`Pricing service returned ${response.status}`);
   }
 
-  return response.json();
+  return response.json() as Promise<QuotePriceResponse>;
 }
-
-async function graphqlJson(url: string, query: string, variables: Record<string, unknown>): Promise<JsonObject> {
-  const response = await httpJson(url, {
-    method: 'POST',
-    body: JSON.stringify({ query, variables })
-  });
-
-  const errors = Array.isArray(response.errors) ? response.errors : [];
-  if (errors.length > 0) {
-    const messages = errors
-      .map((entry) => (entry && typeof entry === 'object' && typeof entry.message === 'string' ? entry.message : 'Unknown GraphQL error'))
-      .join('; ');
-    throw new Error(`GraphQL dependency call failed for ${url}: ${messages}`);
-  }
-
-  if (!response.data || typeof response.data !== 'object') {
-    throw new Error(`GraphQL dependency call returned no data for ${url}`);
-  }
-
-  return response.data as JsonObject;
-}
-
-function quotePriceGrpc(request: QuotePriceRequest): Promise<QuotePriceResponse> {
-  return new Promise((resolve, reject) => {
-    pricingClient.quotePrice(request, (error: Error | null, response: QuotePriceResponse) => {
-      if (error) {
-        logDependencyError('pricingService', config.pricingServiceAddress, error, {
-          method: 'QuotePrice',
-          request
-        });
-        reject(error);
-        return;
-      }
-
-      resolve(response);
-    });
-  });
-}
-
-function isRfc3339DateTime(value: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(value)) {
-    return false;
-  }
-
-  return Number.isFinite(Date.parse(value));
-}
-
-async function publishUserNotification(payload: UserNotification): Promise<void> {
-  await ensureNotificationProducerConnected();
-  console.log(`[publish-notification] requestId=${payload.requestId} title="${payload.title}" body="${payload.body}" priority=${payload.priority}`);
-  await notificationProducer.send({
-    topic: 'notification.user',
-    messages: [{ key: payload.requestId, value: JSON.stringify(payload) }]
-  });
-}
-
-const rootValue = {
-  customer: async ({ id }: GraphQLCustomerArgs) => {
-    return httpJson(`${config.customerServiceBaseUrl}/customers/${encodeURIComponent(id)}`, {
-      method: 'GET'
-    });
-  },
-
-  catalogItems: async ({ category, limit = 10 }: GraphQLCatalogItemsArgs) => {
-    const params = new URLSearchParams();
-    const parsedLimit = Number.parseInt(String(limit), 10);
-    const safeLimit = Number.isFinite(parsedLimit)
-      ? Math.min(100, Math.max(1, parsedLimit))
-      : 10;
-
-    if (category) {
-      params.set('category', category);
-    }
-
-    params.set('limit', String(safeLimit));
-
-    const url = `${config.catalogServiceBaseUrl}/catalog/items?${params.toString()}`;
-    return httpJson(url, { method: 'GET' });
-  },
-
-  catalogItemBySku: async ({ sku }: GraphQLCatalogItemBySkuArgs) => {
-    const data = await graphqlJson(
-      config.catalogServiceGraphqlUrl,
-      `query CatalogItemBySku($sku: String!) {
-        catalogItemBySku(sku: $sku) {
-          sku
-          name
-          available
-          listPrice
-        }
-      }`,
-      { sku }
-    );
-
-    return data.catalogItemBySku ?? null;
-  },
-
-  order: async ({ id }: GraphQLOrderArgs) => {
-    return httpJson(`${config.orderServiceBaseUrl}/orders/${encodeURIComponent(id)}`, {
-      method: 'GET'
-    });
-  },
-
-  orders: async ({ customerId, status, from, to }: GraphQLOrdersArgs) => {
-    const params = new URLSearchParams();
-    params.set('customerId', customerId);
-    if (typeof status === 'string' && orderStatusValues.has(status)) {
-      params.set('status', status);
-    }
-    if (typeof from === 'string' && isRfc3339DateTime(from)) {
-      params.set('from', from);
-    }
-    if (typeof to === 'string' && isRfc3339DateTime(to)) {
-      params.set('to', to);
-    }
-
-    const url = `${config.orderServiceBaseUrl}/orders?${params.toString()}`;
-    try {
-      const response = await httpJson(url, { method: 'GET' });
-      return Array.isArray(response) ? response : [];
-    } catch (_error: unknown) {
-      return [];
-    }
-  },
-
-  quotePrice: async ({ sku, quantity }: GraphQLQuotePriceArgs) => {
-    const quote = await quotePriceGrpc({
-      sku,
-      quantity,
-      customerTier: 'STANDARD'
-    });
-
-    return {
-      sku: quote.sku,
-      quantity: quote.quantity,
-      unitPrice: quote.unitPrice,
-      totalPrice: quote.totalPrice
-    };
-  },
-
-  placeOrder: async ({ input }: GraphQLPlaceOrderArgs) => {
-    const customer = await httpJson(
-      `${config.customerServiceBaseUrl}/customers/${encodeURIComponent(input.customerId)}`,
-      { method: 'GET' }
-    );
-
-    const customerTier = typeof customer.tier === 'string' ? customer.tier : 'STANDARD';
-    const quote = await quotePriceGrpc({
-      sku: input.sku,
-      quantity: input.quantity,
-      customerTier
-    });
-
-    const order = await httpJson(`${config.orderServiceBaseUrl}/orders`, {
-      method: 'POST',
-      body: JSON.stringify({
-        customerId: input.customerId,
-        paymentMethodId: input.paymentMethodId,
-        items: [
-          {
-            sku: input.sku,
-            quantity: input.quantity,
-            unitPrice: quote.unitPrice
-          }
-        ]
-      })
-    });
-
-    const orderId = typeof order.id === 'string' ? order.id : randomUUID();
-    const orderStatus = typeof order.status === 'string' ? order.status : 'PENDING_PAYMENT';
-    await publishUserNotification({
-      notificationId: randomUUID(),
-      requestId: orderId,
-      title: 'Order placed',
-      body: `Order ${orderId} was placed with status ${orderStatus}`,
-      priority: 'NORMAL'
-    });
-
-    return {
-      orderId,
-      status: orderStatus
-    };
-  },
-
-  cancelOrder: async ({ orderId, reason }: GraphQLCancelOrderArgs) => {
-    const payload: Record<string, string> = {};
-    if (typeof reason === 'string') {
-      payload.reason = reason;
-    }
-
-    const response = await httpJson(
-      `${config.orderServiceBaseUrl}/orders/${encodeURIComponent(orderId)}/cancel`,
-      {
-        method: 'POST',
-        body: JSON.stringify(payload)
-      }
-    );
-
-    return {
-      orderId: String(response.id || orderId),
-      status: String(response.status || 'CANCELLED')
-    };
-  },
-
-  requestRefund: async ({ paymentId, amount, reason }: GraphQLRequestRefundArgs) => {
-    // Web BFF models the mutation result and does not require a hard payment dependency in this demo setup.
-    const refundId = randomUUID();
-
-    await publishUserNotification({
-      notificationId: randomUUID(),
-      requestId: paymentId,
-      title: 'Refund requested',
-      body: `Refund ${refundId} requested for payment ${paymentId}: ${reason}`,
-      priority: 'NORMAL'
-    });
-
-    return {
-      paymentId,
-      refundId,
-      status: 'REFUNDED',
-      refundedAmount: amount
-    };
-  },
-
-  scheduleReturn: async ({ input }: GraphQLScheduleReturnArgs) => {
-    const allowedReasonCodes = new Set(['DAMAGED', 'DEFECTIVE', 'WRONG_ITEM', 'NO_LONGER_NEEDED']);
-    const normalizedReasonCode = allowedReasonCodes.has(input.reasonCode) ? input.reasonCode : 'DAMAGED';
-    const normalizedQuantity = Number.isInteger(input.quantity) && input.quantity > 0 ? input.quantity : 1;
-
-    const response = await httpJson(`${config.returnsServiceBaseUrl}/returns`, {
-      method: 'POST',
-      body: JSON.stringify({
-        requestId: randomUUID(),
-        orderId: input.orderId,
-        customerId: input.customerId,
-        items: [
-          {
-            sku: input.sku,
-            quantity: normalizedQuantity,
-            reasonCode: normalizedReasonCode
-          }
-        ],
-        requestedAt: new Date().toISOString()
-      })
-    });
-
-    return {
-      returnId: String(response.returnId || randomUUID()),
-      status: String(response.status || 'PENDING_REVIEW'),
-      updatedAt: String(response.updatedAt || new Date().toISOString()),
-      refundAmount:
-        typeof response.refundAmount === 'number' ? response.refundAmount : null
-    };
-  }
-};
 
 const app = express();
+app.use(express.json());
 
 app.use((req: Request, res: Response, next: NextFunction) => {
   const requestId = randomUUID();
   const startedAt = Date.now();
-  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
-  console.log(
-    `[incoming-request] id=${requestId} method=${req.method} path=${req.originalUrl} ip=${ip}`
-  );
-
+  console.log(`[incoming-request] id=${requestId} method=${req.method} path=${req.originalUrl}`);
   res.on('finish', () => {
-    console.log(
-      `[request-complete] id=${requestId} method=${req.method} path=${req.originalUrl} status=${res.statusCode} durationMs=${Date.now() - startedAt}`
-    );
+    console.log(`[request-complete] id=${requestId} method=${req.method} path=${req.originalUrl} status=${res.statusCode} durationMs=${Date.now() - startedAt}`);
   });
-
   next();
 });
 
-app.get('/health', (_req: Request, res: Response) => {
-  res.status(200).json({ status: 'ok' });
+app.get('/health', (_req, res) => res.status(200).json({ status: 'ok' }));
+
+app.get('/customers/:id', (req, res) => {
+  res.json({ id: req.params.id, email: `${req.params.id}@example.com`, tier: 'STANDARD' });
 });
 
-app.use(
-  '/graphql',
-  createHandler({
-    schema,
-    rootValue
-  })
-);
-
-const server = app.listen(config.port, config.host, () => {
-  console.log(`web-bff listening on http://${config.host}:${config.port}/graphql`);
+app.get('/catalog/items', (req, res) => {
+  const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 10));
+  const category = typeof req.query.category === 'string' ? req.query.category : 'general';
+  res.json(Array.from({ length: limit }, (_, index) => ({
+    sku: `${category}-${index + 1}`,
+    name: `Demo ${category} item ${index + 1}`,
+    available: true,
+    listPrice: 10 + index
+  })));
 });
 
-function shutdown() {
-  server.close(() => {
-    void notificationProducer.disconnect().catch(() => undefined);
-    pricingClient.close();
-    process.exit(0);
-  });
-}
+app.get('/catalog/items/:sku', (req, res) => {
+  res.json({ sku: req.params.sku, name: `Demo item ${req.params.sku}`, available: true, listPrice: 10 });
+});
 
+app.get('/orders/:id', (req, res) => {
+  res.json(orders.get(req.params.id) || { id: req.params.id, status: 'CONFIRMED' });
+});
+
+app.get('/orders', (req, res) => {
+  const customerId = typeof req.query.customerId === 'string' ? req.query.customerId : 'demo-customer';
+  res.json([...orders.values()].filter((order) => order.customerId === customerId));
+});
+
+app.get('/quote-price', async (req, res, next) => {
+  try {
+    const quote = await quotePrice({ sku: String(req.query.sku), quantity: Number(req.query.quantity), customerTier: 'STANDARD' });
+    res.json({ sku: quote.sku, quantity: quote.quantity, unitPrice: quote.unitPrice, totalPrice: quote.totalPrice });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post('/orders', async (req, res, next) => {
+  try {
+    const input = req.body as { customerId: string; sku: string; quantity: number; paymentMethodId: string };
+    const quote = await quotePrice({ sku: input.sku, quantity: input.quantity, customerTier: 'STANDARD' });
+    const order = { id: randomUUID(), customerId: input.customerId, status: 'CONFIRMED', items: [{ sku: input.sku, quantity: input.quantity, unitPrice: quote.unitPrice }], paymentMethodId: input.paymentMethodId };
+    orders.set(order.id, order);
+    res.json({ orderId: order.id, status: order.status });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post('/orders/:orderId/cancel', (req, res) => {
+  const order = orders.get(req.params.orderId) || { id: req.params.orderId };
+  order.status = 'CANCELLED';
+  orders.set(req.params.orderId, order);
+  res.json({ orderId: req.params.orderId, status: 'CANCELLED' });
+});
+
+app.post('/payments/:paymentId/refund', (req, res) => {
+  res.json({ paymentId: req.params.paymentId, refundId: randomUUID(), status: 'REFUNDED', refundedAmount: req.body.amount });
+});
+
+app.post('/returns', (req, res) => {
+  res.json({ returnId: randomUUID(), status: 'PENDING_REVIEW', updatedAt: new Date().toISOString(), refundAmount: null });
+});
+
+app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
+  const message = error instanceof Error ? error.message : String(error);
+  res.status(502).json({ error: message });
+});
+
+const server = app.listen(config.port, config.host, () => console.log(`web-bff-api listening on http://${config.host}:${config.port}`));
+function shutdown() { server.close(() => process.exit(0)); }
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
