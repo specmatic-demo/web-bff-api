@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   detect-spec-changes:
@@ -24,7 +25,9 @@ jobs:
 
   central-contract-repo-report:
     needs: detect-spec-changes
-    if: needs.detect-spec-changes.outputs.specs_changed == 'true'
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      needs.detect-spec-changes.outputs.specs_changed == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
