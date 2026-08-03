@@ -239,7 +239,7 @@ components:
       type: object
       required: [sku, name, available, listPrice]
       properties:
-        sku: { type: string, maxLength: 100 }
+        sku: { type: string, maxLength: 200 }
         name: { type: string, maxLength: 200 }
         available: { type: boolean }
         listPrice: { type: number }
