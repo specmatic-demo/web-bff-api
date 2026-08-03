@@ -2,113 +2,185 @@ openapi: 3.0.3
 info:
   title: Web BFF API
   version: 1.0.0
+  description: Web BFF API for the provider repository demo.
 paths:
   /customers/{id}:
     get:
       operationId: customer
+      summary: Get customer details
       parameters:
-        - $ref: '#/components/parameters/Id'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, maxLength: 100 }
       responses:
         '200':
           description: Customer
+          headers:
+            X-RateLimit-Limit:
+              schema: { type: integer, minimum: 1, maximum: 1000000 }
+            X-RateLimit-Remaining:
+              schema: { type: integer, minimum: 0, maximum: 1000000 }
+            Content-Language:
+              schema: { type: string, enum: [en-US] }
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Customer' }
+              schema: { $ref: '#/components/schemas/customer' }
   /catalog/items:
     get:
       operationId: catalogItems
+      summary: List catalog items
       parameters:
-        - { name: category, in: query, schema: { type: string } }
+        - { name: category, in: query, schema: { type: string, maxLength: 100 } }
         - { name: limit, in: query, schema: { type: integer, default: 10, minimum: 1, maximum: 100 } }
       responses:
         '200':
           description: Catalog items
+          headers:
+            X-RateLimit-Limit:
+              schema: { type: integer, minimum: 1, maximum: 1000000 }
+            X-RateLimit-Remaining:
+              schema: { type: integer, minimum: 0, maximum: 1000000 }
+            Content-Language:
+              schema: { type: string, enum: [en-US] }
           content:
             application/json:
-              schema: { type: array, items: { $ref: '#/components/schemas/CatalogItem' } }
+              schema: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/catalogItem' } }
   /catalog/items/{sku}:
     get:
       operationId: catalogItemBySku
+      summary: Get catalog item
       parameters:
-        - { name: sku, in: path, required: true, schema: { type: string } }
+        - { name: sku, in: path, required: true, schema: { type: string, maxLength: 100 } }
       responses:
         '200':
           description: Catalog item
+          headers:
+            X-RateLimit-Limit:
+              schema: { type: integer, minimum: 1, maximum: 1000000 }
+            X-RateLimit-Remaining:
+              schema: { type: integer, minimum: 0, maximum: 1000000 }
+            Content-Language:
+              schema: { type: string, enum: [en-US] }
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/CatalogItem' }
+              schema: { $ref: '#/components/schemas/catalogItem' }
   /orders/{id}:
     get:
       operationId: order
+      summary: Get order details
       parameters:
-        - $ref: '#/components/parameters/Id'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, maxLength: 100 }
       responses:
         '200':
           description: Order
+          headers:
+            X-RateLimit-Limit:
+              schema: { type: integer, minimum: 1, maximum: 1000000 }
+            X-RateLimit-Remaining:
+              schema: { type: integer, minimum: 0, maximum: 1000000 }
+            Content-Language:
+              schema: { type: string, enum: [en-US] }
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Order' }
+              schema: { $ref: '#/components/schemas/order' }
   /orders:
     get:
       operationId: orders
+      summary: List customer orders
       parameters:
-        - { name: customerId, in: query, required: true, schema: { type: string } }
+        - { name: customerId, in: query, required: true, schema: { type: string, maxLength: 100 } }
         - { name: status, in: query, schema: { type: string, enum: [PENDING_PAYMENT, CONFIRMED, SHIPPED, CANCELLED] } }
-        - { name: from, in: query, schema: { type: string, format: date-time } }
-        - { name: to, in: query, schema: { type: string, format: date-time } }
+        - { name: from, in: query, schema: { type: string, format: date-time, maxLength: 50 } }
+        - { name: to, in: query, schema: { type: string, format: date-time, maxLength: 50 } }
       responses:
         '200':
           description: Orders
+          headers:
+            X-RateLimit-Limit:
+              schema: { type: integer, minimum: 1, maximum: 1000000 }
+            X-RateLimit-Remaining:
+              schema: { type: integer, minimum: 0, maximum: 1000000 }
+            Content-Language:
+              schema: { type: string, enum: [en-US] }
           content:
             application/json:
-              schema: { type: array, items: { $ref: '#/components/schemas/Order' } }
+              schema: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/order' } }
     post:
       operationId: placeOrder
+      summary: Place order
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/PlaceOrderRequest' }
+            schema: { $ref: '#/components/schemas/placeOrderRequest' }
       responses:
         '200':
           description: Placed order
+          headers:
+            X-RateLimit-Limit:
+              schema: { type: integer, minimum: 1, maximum: 1000000 }
+            X-RateLimit-Remaining:
+              schema: { type: integer, minimum: 0, maximum: 1000000 }
+            Content-Language:
+              schema: { type: string, enum: [en-US] }
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/OrderResult' }
+              schema: { $ref: '#/components/schemas/orderResult' }
   /quote-price:
     get:
       operationId: quotePrice
+      summary: Get price quote
       parameters:
-        - { name: sku, in: query, required: true, schema: { type: string } }
-        - { name: quantity, in: query, required: true, schema: { type: integer, minimum: 1 } }
+        - { name: sku, in: query, required: true, schema: { type: string, maxLength: 100 } }
+        - { name: quantity, in: query, required: true, schema: { type: integer, minimum: 1, maximum: 1000 } }
       responses:
         '200':
           description: Quote
+          headers:
+            X-RateLimit-Limit:
+              schema: { type: integer, minimum: 1, maximum: 1000000 }
+            X-RateLimit-Remaining:
+              schema: { type: integer, minimum: 0, maximum: 1000000 }
+            Content-Language:
+              schema: { type: string, enum: [en-US] }
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Quote' }
+              schema: { $ref: '#/components/schemas/quote' }
   /orders/{orderId}/cancel:
     post:
       operationId: cancelOrder
+      summary: Cancel order
       parameters:
-        - { name: orderId, in: path, required: true, schema: { type: string } }
+        - { name: orderId, in: path, required: true, schema: { type: string, maxLength: 100 } }
       requestBody:
         content:
           application/json:
             schema:
               type: object
-              properties: { reason: { type: string } }
+              properties: { reason: { type: string, maxLength: 500 } }
       responses:
         '200':
           description: Cancelled order
+          headers:
+            X-RateLimit-Limit:
+              schema: { type: integer, minimum: 1, maximum: 1000000 }
+            X-RateLimit-Remaining:
+              schema: { type: integer, minimum: 0, maximum: 1000000 }
+            Content-Language:
+              schema: { type: string, enum: [en-US] }
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/OrderResult' }
+              schema: { $ref: '#/components/schemas/orderResult' }
   /payments/{paymentId}/refund:
     post:
       operationId: requestRefund
+      summary: Request payment refund
       parameters:
-        - { name: paymentId, in: path, required: true, schema: { type: string } }
+        - { name: paymentId, in: path, required: true, schema: { type: string, maxLength: 100 } }
       requestBody:
         required: true
         content:
@@ -118,100 +190,109 @@ paths:
               required: [amount, reason]
               properties:
                 amount: { type: number }
-                reason: { type: string }
+                reason: { type: string, maxLength: 500 }
       responses:
         '200':
           description: Refund result
+          headers:
+            X-RateLimit-Limit:
+              schema: { type: integer, minimum: 1, maximum: 1000000 }
+            X-RateLimit-Remaining:
+              schema: { type: integer, minimum: 0, maximum: 1000000 }
+            Content-Language:
+              schema: { type: string, enum: [en-US] }
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/RefundResult' }
+              schema: { $ref: '#/components/schemas/refundResult' }
   /returns:
     post:
       operationId: scheduleReturn
+      summary: Schedule return
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/ScheduleReturnRequest' }
+            schema: { $ref: '#/components/schemas/scheduleReturnRequest' }
       responses:
         '200':
           description: Return result
+          headers:
+            X-RateLimit-Limit:
+              schema: { type: integer, minimum: 1, maximum: 1000000 }
+            X-RateLimit-Remaining:
+              schema: { type: integer, minimum: 0, maximum: 1000000 }
+            Content-Language:
+              schema: { type: string, enum: [en-US] }
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ReturnResult' }
+              schema: { $ref: '#/components/schemas/returnResult' }
 components:
-  parameters:
-    Id:
-      name: id
-      in: path
-      required: true
-      schema: { type: string }
   schemas:
-    Customer:
+    customer:
       type: object
       required: [id, email, tier]
       properties:
-        id: { type: string }
-        email: { type: string }
-        tier: { type: string }
-    CatalogItem:
+        id: { type: string, maxLength: 100 }
+        email: { type: string, maxLength: 254 }
+        tier: { type: string, maxLength: 50 }
+    catalogItem:
       type: object
       required: [sku, name, available, listPrice]
       properties:
-        sku: { type: string }
-        name: { type: string }
+        sku: { type: string, maxLength: 100 }
+        name: { type: string, maxLength: 200 }
         available: { type: boolean }
         listPrice: { type: number }
-    Order:
+    order:
       type: object
       required: [id, status]
       properties:
-        id: { type: string }
-        status: { type: string }
-    Quote:
+        id: { type: string, maxLength: 100 }
+        status: { type: string, maxLength: 50 }
+    quote:
       type: object
       required: [sku, quantity, unitPrice, totalPrice]
       properties:
-        sku: { type: string }
-        quantity: { type: integer }
+        sku: { type: string, maxLength: 100 }
+        quantity: { type: integer, minimum: 1, maximum: 1000 }
         unitPrice: { type: number }
         totalPrice: { type: number }
-    PlaceOrderRequest:
+    placeOrderRequest:
       type: object
       required: [customerId, sku, quantity, paymentMethodId]
       properties:
-        customerId: { type: string }
-        sku: { type: string }
-        quantity: { type: integer, minimum: 1 }
-        paymentMethodId: { type: string }
-    OrderResult:
+        customerId: { type: string, maxLength: 100 }
+        sku: { type: string, maxLength: 100 }
+        quantity: { type: integer, minimum: 1, maximum: 1000 }
+        paymentMethodId: { type: string, maxLength: 100 }
+    orderResult:
       type: object
       required: [orderId, status]
       properties:
-        orderId: { type: string }
-        status: { type: string }
-    RefundResult:
+        orderId: { type: string, maxLength: 100 }
+        status: { type: string, maxLength: 50 }
+    refundResult:
       type: object
       required: [paymentId, refundId, status, refundedAmount]
       properties:
-        paymentId: { type: string }
-        refundId: { type: string }
-        status: { type: string }
+        paymentId: { type: string, maxLength: 100 }
+        refundId: { type: string, maxLength: 100 }
+        status: { type: string, maxLength: 50 }
         refundedAmount: { type: number }
-    ScheduleReturnRequest:
+    scheduleReturnRequest:
       type: object
       required: [orderId, customerId, sku, quantity, reasonCode]
       properties:
-        orderId: { type: string }
-        customerId: { type: string }
-        sku: { type: string }
-        quantity: { type: integer, minimum: 1 }
+        orderId: { type: string, maxLength: 100 }
+        customerId: { type: string, maxLength: 100 }
+        sku: { type: string, maxLength: 100 }
+        quantity: { type: integer, minimum: 1, maximum: 1000 }
         reasonCode: { type: string, enum: [DAMAGED, DEFECTIVE, WRONG_ITEM, NO_LONGER_NEEDED] }
-    ReturnResult:
+    returnResult:
       type: object
       required: [returnId, status, updatedAt]
       properties:
-        returnId: { type: string }
-        status: { type: string }
-        updatedAt: { type: string, format: date-time }
+        returnId: { type: string, maxLength: 100 }
+        status: { type: string, maxLength: 50 }
+        updatedAt: { type: string, format: date-time, maxLength: 50 }
         refundAmount: { type: number, nullable: true }

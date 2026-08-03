@@ -1,0 +1,159 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  detect-spec-changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      specs_changed: ${{ steps.changes.outputs.specs }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Detect changes in specs folder
+        uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            specs:
+              - 'specs/**'
+
+  central-contract-repo-report:
+    needs: detect-spec-changes
+    if: needs.detect-spec-changes.outputs.specs_changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Save Specmatic license
+        run: |
+          mkdir -p ~/.specmatic
+          echo "${{ secrets.PROVIDER_REPOS_DEMO_LICENSE_KEY }}" > ~/.specmatic/specmatic-license.txt
+      - name: Run Specmatic Linter
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/usr/src/app" \
+            -v "$HOME/.specmatic:/root/.specmatic:ro" \
+            -w /usr/src/app \
+            specmatic/enterprise \
+            lint 'specs/*.yaml'
+      - name: Validate examples
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/usr/src/app" \
+            -v "$HOME/.specmatic:/root/.specmatic:ro" \
+            -w /usr/src/app \
+            specmatic/enterprise \
+            examples validate --specs-dir=specs
+      - name: Run backward compatibility check
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/usr/src/app" \
+            -v "$HOME/.specmatic:/root/.specmatic:ro" \
+            -w /usr/src/app \
+            -e GIT_CONFIG_COUNT=1 \
+            -e GIT_CONFIG_KEY_0=safe.directory \
+            -e GIT_CONFIG_VALUE_0=/usr/src/app \
+            specmatic/enterprise \
+            backward-compatibility-check --target-path=specs --base-branch=HEAD^
+      - name: Upload backward compatibility report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-bff-api-backward-compatibility-report
+          path: build/reports/specmatic/backward_compatibility/ctrf/*.json
+          if-no-files-found: ignore
+      - name: Generate central contract repo report
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/usr/src/app" \
+            -v "$HOME/.specmatic:/root/.specmatic:ro" \
+            -w /usr/src/app \
+            --network=host \
+            -e GIT_CONFIG_COUNT=1 \
+            -e GIT_CONFIG_KEY_0=safe.directory \
+            -e GIT_CONFIG_VALUE_0=/usr/src/app \
+            specmatic/enterprise \
+            central-contract-repo-report
+      - name: Publish to Insights
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/usr/src/app" \
+            -v "$HOME/.specmatic:/root/.specmatic:ro" \
+            -w /usr/src/app \
+            --network=host \
+            -e GIT_CONFIG_COUNT=1 \
+            -e GIT_CONFIG_KEY_0=safe.directory \
+            -e GIT_CONFIG_VALUE_0=/usr/src/app \
+            specmatic/enterprise \
+            send-report \
+            --branch-name=${{ github.ref_name }} \
+            --repo-name='${{ github.event.repository.name }}' \
+            --repo-id='${{ github.event.repository.id }}' \
+            --repo-url='${{ github.event.repository.html_url }}'
+
+  contract-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Save Specmatic license
+        run: |
+          mkdir -p ~/.specmatic
+          echo "${{ secrets.PROVIDER_REPOS_DEMO_LICENSE_KEY }}" > ~/.specmatic/specmatic-license.txt
+      - name: Start Web BFF
+        run: docker compose up -d --build
+      - name: Start Pricing Mock
+        run: |
+          docker run --rm --name web-bff-api-pricing-mock \
+            -v "${{ github.workspace }}:/usr/src/app" \
+            -v "$HOME/.specmatic:/root/.specmatic:ro" \
+            -w /usr/src/app \
+            --network=host \
+            -e GIT_CONFIG_COUNT=1 \
+            -e GIT_CONFIG_KEY_0=safe.directory \
+            -e GIT_CONFIG_VALUE_0=/usr/src/app \
+            specmatic/enterprise \
+            mock > pricing-mock.log 2>&1 &
+          for attempt in {1..30}; do
+            if curl --silent --fail http://localhost:5104/ >/dev/null 2>&1; then
+              break
+            fi
+            sleep 2
+          done
+      - name: Run contract tests
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/usr/src/app" \
+            -v "$HOME/.specmatic:/root/.specmatic:ro" \
+            -w /usr/src/app \
+            --network=host \
+            -e GIT_CONFIG_COUNT=1 \
+            -e GIT_CONFIG_KEY_0=safe.directory \
+            -e GIT_CONFIG_VALUE_0=/usr/src/app \
+            specmatic/enterprise \
+            test
+      - name: Stop Pricing Mock and Web BFF
+        run: |
+          docker stop web-bff-api-pricing-mock
+          docker compose down
+      - name: Publish Contract Test Report
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/usr/src/app" \
+            -v "$HOME/.specmatic:/root/.specmatic:ro" \
+            -w /usr/src/app \
+            --network=host \
+            -e GIT_CONFIG_COUNT=1 \
+            -e GIT_CONFIG_KEY_0=safe.directory \
+            -e GIT_CONFIG_VALUE_0=/usr/src/app \
+            specmatic/enterprise \
+            send-report \
+            --branch-name=${{ github.ref_name }} \
+            --repo-name='${{ github.event.repository.name }}' \
+            --repo-id='${{ github.event.repository.id }}' \
+            --repo-url='${{ github.event.repository.html_url }}'
