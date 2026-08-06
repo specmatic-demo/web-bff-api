@@ -41,9 +41,9 @@ jobs:
         run: |
           docker run --rm \
             --user "$(id -u):$(id -g)" \
-            -e SPECMATIC_LICENSE_PATH=/root/.specmatic/specmatic-license.txt \
+            -e SPECMATIC_LICENSE_PATH=/tmp/specmatic-license.txt \
             -v "${{ github.workspace }}:/usr/src/app" \
-            -v "$HOME/.specmatic:/root/.specmatic:ro" \
+            -v "$HOME/.specmatic/specmatic-license.txt:/tmp/specmatic-license.txt:ro" \
             -w /usr/src/app \
             specmatic/enterprise \
             lint 'specs/*.yaml'
@@ -51,9 +51,9 @@ jobs:
         run: |
           docker run --rm \
             --user "$(id -u):$(id -g)" \
-            -e SPECMATIC_LICENSE_PATH=/root/.specmatic/specmatic-license.txt \
+            -e SPECMATIC_LICENSE_PATH=/tmp/specmatic-license.txt \
             -v "${{ github.workspace }}:/usr/src/app" \
-            -v "$HOME/.specmatic:/root/.specmatic:ro" \
+            -v "$HOME/.specmatic/specmatic-license.txt:/tmp/specmatic-license.txt:ro" \
             -w /usr/src/app \
             specmatic/enterprise \
             examples validate --specs-dir=specs
@@ -61,9 +61,9 @@ jobs:
         run: |
           docker run --rm \
             --user "$(id -u):$(id -g)" \
-            -e SPECMATIC_LICENSE_PATH=/root/.specmatic/specmatic-license.txt \
+            -e SPECMATIC_LICENSE_PATH=/tmp/specmatic-license.txt \
             -v "${{ github.workspace }}:/usr/src/app" \
-            -v "$HOME/.specmatic:/root/.specmatic:ro" \
+            -v "$HOME/.specmatic/specmatic-license.txt:/tmp/specmatic-license.txt:ro" \
             -w /usr/src/app \
             specmatic/enterprise \
             backward-compatibility-check --target-path=specs --base-branch=HEAD^
@@ -78,9 +78,9 @@ jobs:
         run: |
           docker run --rm \
             --user "$(id -u):$(id -g)" \
-            -e SPECMATIC_LICENSE_PATH=/root/.specmatic/specmatic-license.txt \
+            -e SPECMATIC_LICENSE_PATH=/tmp/specmatic-license.txt \
             -v "${{ github.workspace }}:/usr/src/app" \
-            -v "$HOME/.specmatic:/root/.specmatic:ro" \
+            -v "$HOME/.specmatic/specmatic-license.txt:/tmp/specmatic-license.txt:ro" \
             -w /usr/src/app \
             --network=host \
             specmatic/enterprise \
@@ -89,9 +89,9 @@ jobs:
         run: |
           docker run --rm \
             --user "$(id -u):$(id -g)" \
-            -e SPECMATIC_LICENSE_PATH=/root/.specmatic/specmatic-license.txt \
+            -e SPECMATIC_LICENSE_PATH=/tmp/specmatic-license.txt \
             -v "${{ github.workspace }}:/usr/src/app" \
-            -v "$HOME/.specmatic:/root/.specmatic:ro" \
+            -v "$HOME/.specmatic/specmatic-license.txt:/tmp/specmatic-license.txt:ro" \
             -w /usr/src/app \
             --network=host \
             specmatic/enterprise \
@@ -115,10 +115,10 @@ jobs:
         run: |
           docker run --rm \
             --user "$(id -u):$(id -g)" \
-            -e SPECMATIC_LICENSE_PATH=/root/.specmatic/specmatic-license.txt \
+            -e SPECMATIC_LICENSE_PATH=/tmp/specmatic-license.txt \
             --name web-bff-api-pricing-mock \
             -v "${{ github.workspace }}:/usr/src/app" \
-            -v "$HOME/.specmatic:/root/.specmatic:ro" \
+            -v "$HOME/.specmatic/specmatic-license.txt:/tmp/specmatic-license.txt:ro" \
             -w /usr/src/app \
             --network=host \
             specmatic/enterprise \
@@ -133,9 +133,9 @@ jobs:
         run: |
           docker run --rm \
             --user "$(id -u):$(id -g)" \
-            -e SPECMATIC_LICENSE_PATH=/root/.specmatic/specmatic-license.txt \
+            -e SPECMATIC_LICENSE_PATH=/tmp/specmatic-license.txt \
             -v "${{ github.workspace }}:/usr/src/app" \
-            -v "$HOME/.specmatic:/root/.specmatic:ro" \
+            -v "$HOME/.specmatic/specmatic-license.txt:/tmp/specmatic-license.txt:ro" \
             -w /usr/src/app \
             --network=host \
             specmatic/enterprise \
@@ -148,9 +148,9 @@ jobs:
         run: |
           docker run --rm \
             --user "$(id -u):$(id -g)" \
-            -e SPECMATIC_LICENSE_PATH=/root/.specmatic/specmatic-license.txt \
+            -e SPECMATIC_LICENSE_PATH=/tmp/specmatic-license.txt \
             -v "${{ github.workspace }}:/usr/src/app" \
-            -v "$HOME/.specmatic:/root/.specmatic:ro" \
+            -v "$HOME/.specmatic/specmatic-license.txt:/tmp/specmatic-license.txt:ro" \
             -w /usr/src/app \
             --network=host \
             specmatic/enterprise \
