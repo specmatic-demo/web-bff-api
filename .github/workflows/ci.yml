@@ -41,14 +41,7 @@ jobs:
         run: |
           docker run --rm \
             --user "$(id -u):$(id -g)" \
-            -e HOME=/root \
-            -e HOME=/root \
-            -e HOME=/root \
-            -e HOME=/root \
-            -e HOME=/root \
-            -e HOME=/root \
-            -e HOME=/root \
-            -e HOME=/root \
+            -e SPECMATIC_LICENSE_PATH=/root/.specmatic/specmatic-license.txt \
             -v "${{ github.workspace }}:/usr/src/app" \
             -v "$HOME/.specmatic:/root/.specmatic:ro" \
             -w /usr/src/app \
@@ -58,6 +51,7 @@ jobs:
         run: |
           docker run --rm \
             --user "$(id -u):$(id -g)" \
+            -e SPECMATIC_LICENSE_PATH=/root/.specmatic/specmatic-license.txt \
             -v "${{ github.workspace }}:/usr/src/app" \
             -v "$HOME/.specmatic:/root/.specmatic:ro" \
             -w /usr/src/app \
@@ -67,6 +61,7 @@ jobs:
         run: |
           docker run --rm \
             --user "$(id -u):$(id -g)" \
+            -e SPECMATIC_LICENSE_PATH=/root/.specmatic/specmatic-license.txt \
             -v "${{ github.workspace }}:/usr/src/app" \
             -v "$HOME/.specmatic:/root/.specmatic:ro" \
             -w /usr/src/app \
@@ -83,6 +78,7 @@ jobs:
         run: |
           docker run --rm \
             --user "$(id -u):$(id -g)" \
+            -e SPECMATIC_LICENSE_PATH=/root/.specmatic/specmatic-license.txt \
             -v "${{ github.workspace }}:/usr/src/app" \
             -v "$HOME/.specmatic:/root/.specmatic:ro" \
             -w /usr/src/app \
@@ -93,6 +89,7 @@ jobs:
         run: |
           docker run --rm \
             --user "$(id -u):$(id -g)" \
+            -e SPECMATIC_LICENSE_PATH=/root/.specmatic/specmatic-license.txt \
             -v "${{ github.workspace }}:/usr/src/app" \
             -v "$HOME/.specmatic:/root/.specmatic:ro" \
             -w /usr/src/app \
@@ -118,6 +115,7 @@ jobs:
         run: |
           docker run --rm \
             --user "$(id -u):$(id -g)" \
+            -e SPECMATIC_LICENSE_PATH=/root/.specmatic/specmatic-license.txt \
             --name web-bff-api-pricing-mock \
             -v "${{ github.workspace }}:/usr/src/app" \
             -v "$HOME/.specmatic:/root/.specmatic:ro" \
@@ -135,6 +133,7 @@ jobs:
         run: |
           docker run --rm \
             --user "$(id -u):$(id -g)" \
+            -e SPECMATIC_LICENSE_PATH=/root/.specmatic/specmatic-license.txt \
             -v "${{ github.workspace }}:/usr/src/app" \
             -v "$HOME/.specmatic:/root/.specmatic:ro" \
             -w /usr/src/app \
@@ -149,6 +148,7 @@ jobs:
         run: |
           docker run --rm \
             --user "$(id -u):$(id -g)" \
+            -e SPECMATIC_LICENSE_PATH=/root/.specmatic/specmatic-license.txt \
             -v "${{ github.workspace }}:/usr/src/app" \
             -v "$HOME/.specmatic:/root/.specmatic:ro" \
             -w /usr/src/app \
