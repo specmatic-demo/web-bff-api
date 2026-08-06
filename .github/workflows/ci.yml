@@ -40,6 +40,7 @@ jobs:
       - name: Run Specmatic Linter
         run: |
           docker run --rm \
+            --user "$(id -u):$(id -g)" \
             -v "${{ github.workspace }}:/usr/src/app" \
             -v "$HOME/.specmatic:/root/.specmatic:ro" \
             -w /usr/src/app \
@@ -48,6 +49,7 @@ jobs:
       - name: Validate examples
         run: |
           docker run --rm \
+            --user "$(id -u):$(id -g)" \
             -v "${{ github.workspace }}:/usr/src/app" \
             -v "$HOME/.specmatic:/root/.specmatic:ro" \
             -w /usr/src/app \
@@ -56,12 +58,10 @@ jobs:
       - name: Run backward compatibility check
         run: |
           docker run --rm \
+            --user "$(id -u):$(id -g)" \
             -v "${{ github.workspace }}:/usr/src/app" \
             -v "$HOME/.specmatic:/root/.specmatic:ro" \
             -w /usr/src/app \
-            -e GIT_CONFIG_COUNT=1 \
-            -e GIT_CONFIG_KEY_0=safe.directory \
-            -e GIT_CONFIG_VALUE_0=/usr/src/app \
             specmatic/enterprise \
             backward-compatibility-check --target-path=specs --base-branch=HEAD^
       - name: Upload backward compatibility report
@@ -74,25 +74,21 @@ jobs:
       - name: Generate central contract repo report
         run: |
           docker run --rm \
+            --user "$(id -u):$(id -g)" \
             -v "${{ github.workspace }}:/usr/src/app" \
             -v "$HOME/.specmatic:/root/.specmatic:ro" \
             -w /usr/src/app \
             --network=host \
-            -e GIT_CONFIG_COUNT=1 \
-            -e GIT_CONFIG_KEY_0=safe.directory \
-            -e GIT_CONFIG_VALUE_0=/usr/src/app \
             specmatic/enterprise \
             central-contract-repo-report
       - name: Publish to Insights
         run: |
           docker run --rm \
+            --user "$(id -u):$(id -g)" \
             -v "${{ github.workspace }}:/usr/src/app" \
             -v "$HOME/.specmatic:/root/.specmatic:ro" \
             -w /usr/src/app \
             --network=host \
-            -e GIT_CONFIG_COUNT=1 \
-            -e GIT_CONFIG_KEY_0=safe.directory \
-            -e GIT_CONFIG_VALUE_0=/usr/src/app \
             specmatic/enterprise \
             send-report \
             --branch-name=${{ github.ref_name }} \
@@ -112,14 +108,13 @@ jobs:
         run: docker compose up -d --build
       - name: Start Pricing Mock
         run: |
-          docker run --rm --name web-bff-api-pricing-mock \
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            --name web-bff-api-pricing-mock \
             -v "${{ github.workspace }}:/usr/src/app" \
             -v "$HOME/.specmatic:/root/.specmatic:ro" \
             -w /usr/src/app \
             --network=host \
-            -e GIT_CONFIG_COUNT=1 \
-            -e GIT_CONFIG_KEY_0=safe.directory \
-            -e GIT_CONFIG_VALUE_0=/usr/src/app \
             specmatic/enterprise \
             mock > pricing-mock.log 2>&1 &
           for attempt in {1..30}; do
@@ -131,13 +126,11 @@ jobs:
       - name: Run contract tests
         run: |
           docker run --rm \
+            --user "$(id -u):$(id -g)" \
             -v "${{ github.workspace }}:/usr/src/app" \
             -v "$HOME/.specmatic:/root/.specmatic:ro" \
             -w /usr/src/app \
             --network=host \
-            -e GIT_CONFIG_COUNT=1 \
-            -e GIT_CONFIG_KEY_0=safe.directory \
-            -e GIT_CONFIG_VALUE_0=/usr/src/app \
             specmatic/enterprise \
             test
       - name: Stop Pricing Mock and Web BFF
@@ -147,13 +140,11 @@ jobs:
       - name: Publish Contract Test Report
         run: |
           docker run --rm \
+            --user "$(id -u):$(id -g)" \
             -v "${{ github.workspace }}:/usr/src/app" \
             -v "$HOME/.specmatic:/root/.specmatic:ro" \
             -w /usr/src/app \
             --network=host \
-            -e GIT_CONFIG_COUNT=1 \
-            -e GIT_CONFIG_KEY_0=safe.directory \
-            -e GIT_CONFIG_VALUE_0=/usr/src/app \
             specmatic/enterprise \
             send-report \
             --branch-name=${{ github.ref_name }} \
