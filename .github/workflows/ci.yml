@@ -41,6 +41,14 @@ jobs:
         run: |
           docker run --rm \
             --user "$(id -u):$(id -g)" \
+            -e HOME=/root \
+            -e HOME=/root \
+            -e HOME=/root \
+            -e HOME=/root \
+            -e HOME=/root \
+            -e HOME=/root \
+            -e HOME=/root \
+            -e HOME=/root \
             -v "${{ github.workspace }}:/usr/src/app" \
             -v "$HOME/.specmatic:/root/.specmatic:ro" \
             -w /usr/src/app \
