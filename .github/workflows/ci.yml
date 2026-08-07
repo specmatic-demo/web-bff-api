@@ -111,7 +111,20 @@ jobs:
           mkdir -p ~/.specmatic
           echo "${{ secrets.PROVIDER_REPOS_DEMO_LICENSE_KEY }}" > ~/.specmatic/specmatic-license.txt
       - name: Start Web BFF
-        run: docker compose up -d --build
+        run: |
+          docker compose up -d --build
+
+          for attempt in {1..30}; do
+            if curl --silent --fail http://localhost:4000/health >/dev/null; then
+              echo "Web BFF is ready"
+              exit 0
+            fi
+            sleep 2
+          done
+
+          docker compose ps
+          docker compose logs
+          exit 1
       - name: Start Pricing Mock
         run: |
           docker run --rm \
