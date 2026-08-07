@@ -151,6 +151,7 @@ jobs:
             -v "${{ github.workspace }}:/usr/src/app" \
             -v "$HOME/.specmatic/specmatic-license.txt:/tmp/specmatic-license.txt:ro" \
             -w /usr/src/app \
+            --network=host \
             specmatic/enterprise \
             test
       - name: Stop Pricing Mock and Web BFF
