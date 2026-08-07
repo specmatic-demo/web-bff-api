@@ -1,7 +1,7 @@
 version: 3
 systemUnderTest:
   service:
-    $ref: "#/components/services/webBff"
+    $ref: "#/components/services/webBffApi"
     runOptions:
       openapi:
         host: localhost
@@ -9,19 +9,19 @@ systemUnderTest:
 dependencies:
   services:
     - service:
-        $ref: "#/components/services/pricingService"
+        $ref: "#/components/services/pricingApi"
         runOptions:
-          $ref: "#/components/runOptions/pricingServiceMock"
+          $ref: "#/components/runOptions/pricingApiMock"
 components:
   sources:
     localSpecs:
       filesystem:
         directory: specs
-    pricingServiceRepo:
+    pricingApiRepo:
       git:
         url: https://github.com/specmatic-demo/pricing-api
   services:
-    webBff:
+    webBffApi:
       description: "Web BFF"
       definitions:
         - definition:
@@ -30,17 +30,17 @@ components:
             specs:
               - spec:
                   path: "web_bff.yaml"
-    pricingService:
-      description: "Pricing Service dependency"
+    pricingApi:
+      description: "Pricing API dependency"
       definitions:
         - definition:
             source:
-              $ref: "#/components/sources/pricingServiceRepo"
+              $ref: "#/components/sources/pricingApiRepo"
             specs:
               - spec:
                   path: "specs/pricing.yaml"
   runOptions:
-    pricingServiceMock:
+    pricingApiMock:
       openapi:
         type: mock
         port: 5104
